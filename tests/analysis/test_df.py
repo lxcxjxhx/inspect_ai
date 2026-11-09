@@ -1,5 +1,6 @@
 import gc
 import tempfile
+import warnings
 import weakref
 from pathlib import Path
 
@@ -802,3 +803,20 @@ def test_message_render_cache_does_not_outlive_its_scope():
     message.content = "after"
     with message_render_cache():
         assert messages_as_str([message]) == "user:\nafter\n"
+
+
+def test_samples_df_does_not_emit_the_inplace_deprecation(tmp_path):
+    pandas = pytest.importorskip("pandas")
+    if tuple(int(part) for part in pandas.__version__.split(".")[:2]) < (3, 1):
+        pytest.skip("pandas deprecates drop_duplicates(inplace=...) in 3.1")
+
+    eval(
+        Task(dataset=[Sample(input="hi", target="hi")]),
+        model="mockllm/model",
+        log_dir=str(tmp_path),
+        display="none",
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        samples_df(str(tmp_path))
